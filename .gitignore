@@ -1,0 +1,8 @@
+/vendor/
+/node_modules/
+/.env
+*.log
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+/public/uploads/
