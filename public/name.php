@@ -95,7 +95,10 @@ require_once __DIR__ . '/../includes/header.php';
 
                 <div class="detail-card">
                     <h3>Record Info</h3>
-                    <p><strong>Status:</strong> Approved</p>
+                    <p>
+                        <strong>Status:</strong>
+                        <span class="badge badge-approved">Approved</span>
+                    </p>
                     <p><strong>Added:</strong> <?= htmlspecialchars($entry['created_at']) ?></p>
                 </div>
             </aside>

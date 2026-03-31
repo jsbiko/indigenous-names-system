@@ -374,3 +374,37 @@ nav a {
     border-color: #9fd39f;
     color: #1f5d1f;
 }
+
+/*status badge*/
+.badge {
+    display: inline-block;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.badge-approved {
+    background: #e8f5e9;
+    color: #1b5e20;
+    border: 1px solid #a5d6a7;
+}
+
+.badge-pending {
+    background: #fff8e1;
+    color: #8d6e00;
+    border: 1px solid #ffe082;
+}
+
+.badge-rejected {
+    background: #ffebee;
+    color: #b71c1c;
+    border: 1px solid #ef9a9a;
+}
+
+.badge-revision {
+    background: #ede7f6;
+    color: #4527a0;
+    border: 1px solid #b39ddb;
+}
