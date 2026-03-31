@@ -407,3 +407,52 @@ nav a {
         grid-template-columns: 1fr;
     }
 }
+
+/*AUTH card*/
+.auth-card {
+    max-width: 520px;
+    margin: 0 auto;
+}
+
+/*submit php block */
+.submission-form {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.form-actions {
+    margin-top: 10px;
+}
+
+.form-actions button {
+    padding: 14px 20px;
+    border: none;
+    background: #666;
+    color: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.alert {
+    padding: 16px 18px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid;
+}
+
+.alert ul {
+    margin-left: 18px;
+}
+
+.alert-error {
+    background: #fff3f3;
+    border-color: #e0a4a4;
+    color: #7a1f1f;
+}
+
+.alert-success {
+    background: #f1fbf1;
+    border-color: #9fd39f;
+    color: #1f5d1f;
+}

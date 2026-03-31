@@ -47,3 +47,12 @@ VALUES
 ('Akinyi', 'Born in the morning', 'Luo', 'Western Kenya', 'female', 'Birth time', 'A Luo name commonly associated with a girl born in the morning.', 'Community knowledge', 'approved'),
 ('Kwame', 'Born on Saturday', 'Akan', 'Ghana', 'male', 'Day-name tradition', 'An Akan day name traditionally given to boys born on Saturday.', 'Cultural reference', 'approved'),
 ('Thabo', 'Joy', 'Sotho', 'Southern Africa', 'male', 'Virtue naming', 'A name associated with happiness, joy, and positive aspiration.', 'General cultural source', 'approved');
+
+/*create admin*/
+INSERT INTO users (name, email, password, role)
+VALUES (
+    'Admin User',
+    'admin@system.com',
+    '$2y$10$e0NRzVqH9M6G3zCz6Z8wFeu9Z7lZ1Q9zQ1p7p9Z1lZ1Q9zQ1p7p9Z',
+    'admin'
+);
