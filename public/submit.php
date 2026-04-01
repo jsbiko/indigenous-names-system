@@ -27,6 +27,17 @@ $namingContext = trim($_POST['naming_context'] ?? '');
 $culturalExplanation = trim($_POST['cultural_explanation'] ?? '');
 $sources = trim($_POST['sources'] ?? '');
 
+// Generate a canonical key for duplicate checking
+function generateCanonicalKey(string $name, string $ethnicGroup): string {
+    $normalize = function ($value) {
+        $value = strtolower(trim($value));
+        $value = preg_replace('/[^a-z0-9]+/i', '-', $value);
+        return trim($value, '-');
+    };
+
+    return $normalize($name) . '-' . $normalize($ethnicGroup);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($name === '') $errors[] = 'Name is required.';
     if ($meaning === '') $errors[] = 'Meaning is required.';
@@ -35,17 +46,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (strlen($name) > 150) $errors[] = 'Name must not exceed 150 characters.';
 
     if (empty($errors)) {
+
+    $canonicalKey = generateCanonicalKey($name, $ethnicGroup);
+
+    // Check for existing canonical entry
+    $checkStmt = $pdo->prepare("
+        SELECT id, status
+        FROM name_entries
+        WHERE canonical_key = :canonical_key
+        LIMIT 1
+    ");
+    $checkStmt->execute([':canonical_key' => $canonicalKey]);
+    $existingEntry = $checkStmt->fetch();
+
+    if ($existingEntry) {
+        $errors[] = 'A record for this name and ethnic group already exists in the system. Please contribute improvements instead of creating a duplicate entry.';
+    } else {
+
         $stmt = $pdo->prepare("
             INSERT INTO name_entries
-            (name, meaning, ethnic_group, region, gender, naming_context, cultural_explanation, sources, status, created_by)
+            (name, canonical_key, meaning, ethnic_group, region, gender, naming_context, cultural_explanation, sources, status, created_by)
             VALUES
-            (:name, :meaning, :ethnic_group, :region, :gender, :naming_context, :cultural_explanation, :sources, 'pending', :created_by)
+            (:name, :canonical_key, :meaning, :ethnic_group, :region, :gender, :naming_context, :cultural_explanation, :sources, 'pending', :created_by)
         ");
 
         $createdBy = currentUser()['id'];
 
         $stmt->execute([
             ':name' => $name,
+            ':canonical_key' => $canonicalKey,
             ':meaning' => $meaning,
             ':ethnic_group' => $ethnicGroup,
             ':region' => $region !== '' ? $region : null,

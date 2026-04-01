@@ -147,6 +147,15 @@ require_once __DIR__ . '/../includes/header.php';
             <?php else: ?>
                 <p>No pending submissions.</p>
             <?php endif; ?>
+
+
+        
+            <div class="detail-card" style="margin-top: 20px;">
+                <h2>Suggestion Queue</h2>
+                <p>Review contributor improvements for existing name records.</p>
+                <p><a class="btn-revision" href="review-suggestions.php">Open Suggestion Review</a></p>
+            </div>
+        
         </aside>
 
         <section class="review-main">

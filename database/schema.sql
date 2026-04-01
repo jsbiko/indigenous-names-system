@@ -73,9 +73,49 @@ VALUES
 ('Thabo', 'Joy', 'Sotho', 'Southern Africa', 'male', 'Virtue naming', 'A name associated with happiness, joy, and positive aspiration.', 'General cultural source', 'approved');
 
 INSERT INTO users (full_name, email, password_hash, role)
-VALUES (
-    'Admin User',
-    'admin@system.com',
-    '$2y$10$e0NRzVqH9M6G3zCz6Z8wFeu9Z7lZ1Q9zQ1p7p9Z1lZ1Q9zQ1p7p9Z',
-    'admin'
+SELECT 'Admin User', 'admin@system.com', '$2y$10$e0NRzVqH9M6G3zCz6Z8wFeu9Z7lZ1Q9zQ1p7p9Z1lZ1Q9zQ1p7p9Z', 'admin'
+WHERE NOT EXISTS (
+    SELECT 1 FROM users WHERE email = 'admin@system.com'
+);
+
+CREATE TABLE IF NOT EXISTS name_suggestions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    entry_id INT NOT NULL,
+    suggested_by INT DEFAULT NULL,
+    suggestion_type ENUM(
+        'meaning',
+        'cultural_explanation',
+        'sources',
+        'authority_profile',
+        'general'
+    ) NOT NULL DEFAULT 'general',
+    proposed_meaning TEXT,
+    proposed_naming_context VARCHAR(255),
+    proposed_cultural_explanation TEXT,
+    proposed_sources TEXT,
+    proposed_overview TEXT,
+    proposed_linguistic_origin TEXT,
+    proposed_cultural_significance TEXT,
+    proposed_historical_context TEXT,
+    proposed_variants TEXT,
+    proposed_pronunciation VARCHAR(255),
+    proposed_related_names TEXT,
+    proposed_scholarly_notes TEXT,
+    proposed_references_text TEXT,
+    contributor_notes TEXT,
+    status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+    reviewed_by INT DEFAULT NULL,
+    reviewed_at TIMESTAMP NULL DEFAULT NULL,
+    review_notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_name_suggestions_entry
+        FOREIGN KEY (entry_id) REFERENCES name_entries(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_name_suggestions_user
+        FOREIGN KEY (suggested_by) REFERENCES users(id)
+        ON DELETE SET NULL,
+    CONSTRAINT fk_name_suggestions_reviewer
+        FOREIGN KEY (reviewed_by) REFERENCES users(id)
+        ON DELETE SET NULL
 );

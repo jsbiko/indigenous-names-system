@@ -73,6 +73,13 @@ require_once __DIR__ . '/../includes/header.php';
             <p class="detail-meaning"><?= htmlspecialchars($entry['meaning']) ?></p>
         </section>
 
+        <?php if (isLoggedIn()): ?>
+    <div class="detail-card">
+        <a class="btn-revision" href="suggest-improvement.php?entry_id=<?= (int)$entry['id'] ?>">
+            Suggest Improvement
+        </a>
+    </div><?php endif; ?>
+
         <?php if ($isEditorialUser): ?>
             <div class="detail-card">
                 <h2>Editorial Tools</h2>

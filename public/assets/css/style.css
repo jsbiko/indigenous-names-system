@@ -533,3 +533,45 @@ nav a {
 .history-item p:last-child {
     margin-bottom: 0;
 }
+
+
+/*diff block*/
+.diff-block {
+  margin-bottom: 20px;
+}
+
+.diff-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.diff-old {
+  background: #ffecec;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.diff-new {
+  background: #e6ffed;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.diff-old strong,
+.diff-new strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.merge-options {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fafafa;
+}
+
+.merge-options label {
+  display: block;
+  margin-bottom: 8px;
+}
