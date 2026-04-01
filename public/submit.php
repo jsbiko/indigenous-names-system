@@ -27,7 +27,7 @@ $namingContext = trim($_POST['naming_context'] ?? '');
 $culturalExplanation = trim($_POST['cultural_explanation'] ?? '');
 $sources = trim($_POST['sources'] ?? '');
 
-// Generate a canonical key for duplicate checking
+/* Canonical key generator */
 function generateCanonicalKey(string $name, string $ethnicGroup): string {
     $normalize = function ($value) {
         $value = strtolower(trim($value));
@@ -38,7 +38,9 @@ function generateCanonicalKey(string $name, string $ethnicGroup): string {
     return $normalize($name) . '-' . $normalize($ethnicGroup);
 }
 
+/* Handle submission */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
     if ($name === '') $errors[] = 'Name is required.';
     if ($meaning === '') $errors[] = 'Meaning is required.';
     if ($ethnicGroup === '') $errors[] = 'Ethnic group is required.';
@@ -47,46 +49,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
 
-    $canonicalKey = generateCanonicalKey($name, $ethnicGroup);
+        $canonicalKey = generateCanonicalKey($name, $ethnicGroup);
 
-    // Check for existing canonical entry
-    $checkStmt = $pdo->prepare("
-        SELECT id, status
-        FROM name_entries
-        WHERE canonical_key = :canonical_key
-        LIMIT 1
-    ");
-    $checkStmt->execute([':canonical_key' => $canonicalKey]);
-    $existingEntry = $checkStmt->fetch();
-
-    if ($existingEntry) {
-        $errors[] = 'A record for this name and ethnic group already exists in the system. Please contribute improvements instead of creating a duplicate entry.';
-    } else {
-
-        $stmt = $pdo->prepare("
-            INSERT INTO name_entries
-            (name, canonical_key, meaning, ethnic_group, region, gender, naming_context, cultural_explanation, sources, status, created_by)
-            VALUES
-            (:name, :canonical_key, :meaning, :ethnic_group, :region, :gender, :naming_context, :cultural_explanation, :sources, 'pending', :created_by)
+        /* Check for duplicates */
+        $checkStmt = $pdo->prepare("
+            SELECT id
+            FROM name_entries
+            WHERE canonical_key = :canonical_key
+            LIMIT 1
         ");
+        $checkStmt->execute([':canonical_key' => $canonicalKey]);
+        $existingEntry = $checkStmt->fetch();
 
-        $createdBy = currentUser()['id'];
+        if ($existingEntry) {
+            $errors[] = 'A record for this name and ethnic group already exists. Please submit an improvement instead.';
+        } else {
 
-        $stmt->execute([
-            ':name' => $name,
-            ':canonical_key' => $canonicalKey,
-            ':meaning' => $meaning,
-            ':ethnic_group' => $ethnicGroup,
-            ':region' => $region !== '' ? $region : null,
-            ':gender' => $gender,
-            ':naming_context' => $namingContext,
-            ':cultural_explanation' => $culturalExplanation !== '' ? $culturalExplanation : null,
-            ':sources' => $sources !== '' ? $sources : null,
-            ':created_by' => $createdBy,
-        ]);
+            try {
+                $stmt = $pdo->prepare("
+                    INSERT INTO name_entries
+                    (name, canonical_key, meaning, ethnic_group, region, gender, naming_context, cultural_explanation, sources, status, created_by)
+                    VALUES
+                    (:name, :canonical_key, :meaning, :ethnic_group, :region, :gender, :naming_context, :cultural_explanation, :sources, 'pending', :created_by)
+                ");
 
-        header('Location: submit.php?success=1');
-        exit;
+                $stmt->execute([
+                    ':name' => $name,
+                    ':canonical_key' => $canonicalKey,
+                    ':meaning' => $meaning,
+                    ':ethnic_group' => $ethnicGroup,
+                    ':region' => $region !== '' ? $region : null,
+                    ':gender' => $gender,
+                    ':naming_context' => $namingContext,
+                    ':cultural_explanation' => $culturalExplanation !== '' ? $culturalExplanation : null,
+                    ':sources' => $sources !== '' ? $sources : null,
+                    ':created_by' => currentUser()['id'],
+                ]);
+
+                header('Location: submit.php?success=1');
+                exit;
+
+            } catch (Throwable $e) {
+                $errors[] = 'Failed to submit entry. Please try again.';
+            }
+        }
     }
 }
 
