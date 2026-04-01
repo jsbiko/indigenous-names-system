@@ -205,6 +205,13 @@ require_once __DIR__ . '/../includes/header.php';
                         </p>
                     </div>
                 </div>
+                
+                <div class="detail-card">
+                    <h2>Authority Page Tools</h2>
+                    <p>Build or update the extended authority profile for this name.</p>
+                    <p><a class="btn-approve" href="edit-profile.php?entry_id=<?= (int)$selectedEntry['id'] ?>">Open Profile Editor</a></p>
+                </div>
+
 
                 <div class="detail-card">
                     <h2>Review</h2>

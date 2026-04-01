@@ -7,9 +7,31 @@ require_once __DIR__ . '/../includes/auth.php';
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 $stmt = $pdo->prepare("
-    SELECT id, name, meaning, ethnic_group, region, gender, naming_context, cultural_explanation, sources, created_at
-    FROM name_entries
-    WHERE id = :id AND status = 'approved'
+    SELECT 
+        ne.id,
+        ne.name,
+        ne.meaning,
+        ne.ethnic_group,
+        ne.region,
+        ne.gender,
+        ne.naming_context,
+        ne.cultural_explanation,
+        ne.sources,
+        ne.created_at,
+        np.overview,
+        np.linguistic_origin,
+        np.cultural_significance,
+        np.historical_context,
+        np.variants,
+        np.pronunciation,
+        np.related_names,
+        np.scholarly_notes,
+        np.references_text,
+        np.ai_summary,
+        np.updated_at AS profile_updated_at
+    FROM name_entries ne
+    LEFT JOIN name_profiles np ON np.entry_id = ne.id
+    WHERE ne.id = :id AND ne.status = 'approved'
     LIMIT 1
 ");
 $stmt->execute([':id' => $id]);
@@ -23,6 +45,13 @@ if (!$entry) {
 $pageTitle = $entry
     ? $entry['name'] . ' | Indigenous Names System'
     : 'Name Not Found | Indigenous Names System';
+
+$isEditorialUser = false;
+
+if (function_exists('isLoggedIn') && function_exists('currentUser') && isLoggedIn()) {
+    $currentUser = currentUser();
+    $isEditorialUser = isset($currentUser['role']) && in_array($currentUser['role'], ['editor', 'admin'], true);
+}
 
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -44,8 +73,28 @@ require_once __DIR__ . '/../includes/header.php';
             <p class="detail-meaning"><?= htmlspecialchars($entry['meaning']) ?></p>
         </section>
 
+        <?php if ($isEditorialUser): ?>
+            <div class="detail-card">
+                <h2>Editorial Tools</h2>
+                <p>Manage the authority profile and editorial content for this name entry.</p>
+                <p>
+                    <a class="btn-approve" href="edit-profile.php?entry_id=<?= (int)$entry['id'] ?>">
+                        Edit Authority Profile
+                    </a>
+                </p>
+            </div>
+        <?php endif; ?>
+
         <div class="detail-layout">
             <section class="detail-main">
+
+                <?php if (!empty($entry['overview'])): ?>
+                    <div class="detail-card">
+                        <h2>Overview</h2>
+                        <p><?= nl2br(htmlspecialchars($entry['overview'])) ?></p>
+                    </div>
+                <?php endif; ?>
+
                 <div class="detail-card">
                     <h2>Meaning</h2>
                     <p><?= nl2br(htmlspecialchars($entry['meaning'])) ?></p>
@@ -71,6 +120,13 @@ require_once __DIR__ . '/../includes/header.php';
                         <h3>Naming Context</h3>
                         <p><?= htmlspecialchars($entry['naming_context'] ?: 'Not specified') ?></p>
                     </div>
+
+                    <?php if (!empty($entry['pronunciation'])): ?>
+                        <div class="detail-card">
+                            <h3>Pronunciation</h3>
+                            <p><?= htmlspecialchars($entry['pronunciation']) ?></p>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <div class="detail-card">
@@ -81,6 +137,56 @@ require_once __DIR__ . '/../includes/header.php';
                             : 'No extended cultural explanation available yet.' ?>
                     </p>
                 </div>
+
+                <?php if (!empty($entry['linguistic_origin'])): ?>
+                    <div class="detail-card">
+                        <h2>Linguistic Origin</h2>
+                        <p><?= nl2br(htmlspecialchars($entry['linguistic_origin'])) ?></p>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($entry['cultural_significance'])): ?>
+                    <div class="detail-card">
+                        <h2>Cultural Significance</h2>
+                        <p><?= nl2br(htmlspecialchars($entry['cultural_significance'])) ?></p>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($entry['historical_context'])): ?>
+                    <div class="detail-card">
+                        <h2>Historical Context</h2>
+                        <p><?= nl2br(htmlspecialchars($entry['historical_context'])) ?></p>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($entry['variants'])): ?>
+                    <div class="detail-card">
+                        <h2>Variants</h2>
+                        <p><?= nl2br(htmlspecialchars($entry['variants'])) ?></p>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($entry['related_names'])): ?>
+                    <div class="detail-card">
+                        <h2>Related Names</h2>
+                        <p><?= nl2br(htmlspecialchars($entry['related_names'])) ?></p>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($entry['scholarly_notes'])): ?>
+                    <div class="detail-card">
+                        <h2>Scholarly Notes</h2>
+                        <p><?= nl2br(htmlspecialchars($entry['scholarly_notes'])) ?></p>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($entry['ai_summary'])): ?>
+                    <div class="detail-card">
+                        <h2>AI Summary</h2>
+                        <p><?= nl2br(htmlspecialchars($entry['ai_summary'])) ?></p>
+                    </div>
+                <?php endif; ?>
+
             </section>
 
             <aside class="detail-sidebar">
@@ -93,6 +199,13 @@ require_once __DIR__ . '/../includes/header.php';
                     </p>
                 </div>
 
+                <?php if (!empty($entry['references_text'])): ?>
+                    <div class="detail-card">
+                        <h3>Additional References</h3>
+                        <p><?= nl2br(htmlspecialchars($entry['references_text'])) ?></p>
+                    </div>
+                <?php endif; ?>
+
                 <div class="detail-card">
                     <h3>Record Info</h3>
                     <p>
@@ -100,6 +213,10 @@ require_once __DIR__ . '/../includes/header.php';
                         <span class="badge badge-approved">Approved</span>
                     </p>
                     <p><strong>Added:</strong> <?= htmlspecialchars($entry['created_at']) ?></p>
+
+                    <?php if (!empty($entry['profile_updated_at'])): ?>
+                        <p><strong>Profile Updated:</strong> <?= htmlspecialchars($entry['profile_updated_at']) ?></p>
+                    <?php endif; ?>
                 </div>
             </aside>
         </div>

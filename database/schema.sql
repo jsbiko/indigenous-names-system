@@ -41,6 +41,30 @@ CREATE TABLE IF NOT EXISTS reviews (
         ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS name_profiles (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    entry_id INT NOT NULL UNIQUE,
+    overview TEXT,
+    linguistic_origin TEXT,
+    cultural_significance TEXT,
+    historical_context TEXT,
+    variants TEXT,
+    pronunciation VARCHAR(255),
+    related_names TEXT,
+    scholarly_notes TEXT,
+    references_text TEXT,
+    ai_summary TEXT,
+    last_edited_by INT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_name_profiles_entry
+        FOREIGN KEY (entry_id) REFERENCES name_entries(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_name_profiles_editor
+        FOREIGN KEY (last_edited_by) REFERENCES users(id)
+        ON DELETE SET NULL
+);
+
 INSERT INTO name_entries
 (name, meaning, ethnic_group, region, gender, naming_context, cultural_explanation, sources, status)
 VALUES
@@ -48,8 +72,7 @@ VALUES
 ('Kwame', 'Born on Saturday', 'Akan', 'Ghana', 'male', 'Day-name tradition', 'An Akan day name traditionally given to boys born on Saturday.', 'Cultural reference', 'approved'),
 ('Thabo', 'Joy', 'Sotho', 'Southern Africa', 'male', 'Virtue naming', 'A name associated with happiness, joy, and positive aspiration.', 'General cultural source', 'approved');
 
-/*create admin*/
-INSERT INTO users (name, email, password, role)
+INSERT INTO users (full_name, email, password_hash, role)
 VALUES (
     'Admin User',
     'admin@system.com',
