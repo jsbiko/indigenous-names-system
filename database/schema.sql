@@ -141,3 +141,6 @@ CREATE TABLE IF NOT EXISTS suggestion_merge_logs (
         FOREIGN KEY (merged_by) REFERENCES users(id)
         ON DELETE SET NULL
 );
+
+ALTER TABLE suggestion_merge_logs
+ADD COLUMN action_type ENUM('merge', 'rollback') NOT NULL DEFAULT 'merge' AFTER merge_status;

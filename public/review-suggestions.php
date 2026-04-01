@@ -248,6 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         old_value,
                         new_value,
                         merge_status,
+                        action_type,
                         merged_by
                     ) VALUES (
                         :suggestion_id,
@@ -257,6 +258,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         :old_value,
                         :new_value,
                         :merge_status,
+                        :action_type,
                         :merged_by
                     )
                 ");
@@ -288,6 +290,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':old_value' => $oldValue,
                         ':new_value' => $newValue,
                         ':merge_status' => ($wasSelected && hasChanged($oldValue, $newValue)) ? 'merged' : 'skipped',
+                        ':action_type' => 'merge',
                         ':merged_by' => currentUser()['id'],
                     ]);
                 }
@@ -321,7 +324,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $needsProfileRow = true;
                         $profileUpdateParts[] = $fieldName . ' = :' . $fieldName;
                         $profileUpdateParams[':' . $fieldName] = $newValue;
-                        }
+                    }
 
                     $logStmt->execute([
                         ':suggestion_id' => $suggestion['id'],
@@ -331,6 +334,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':old_value' => $oldValue,
                         ':new_value' => $newValue,
                         ':merge_status' => ($wasSelected && hasChanged($oldValue, $newValue)) ? 'merged' : 'skipped',
+                        ':action_type' => 'merge',
                         ':merged_by' => currentUser()['id'],
                     ]);
                 }
@@ -596,7 +600,6 @@ require_once __DIR__ . '/../includes/header.php';
                                 : 'No current sources available.' ?>
                         </p>
                     </div>
-
                 </div>
 
                 <div class="detail-card">

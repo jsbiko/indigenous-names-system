@@ -24,6 +24,24 @@ $fieldLabels = [
     'references_text' => 'References',
 ];
 
+$allowedFieldTargets = [
+    'name_entries' => ['meaning', 'naming_context', 'cultural_explanation', 'sources'],
+    'name_profiles' => [
+        'overview',
+        'linguistic_origin',
+        'cultural_significance',
+        'historical_context',
+        'variants',
+        'pronunciation',
+        'related_names',
+        'scholarly_notes',
+        'references_text',
+    ],
+];
+
+$successMessage = '';
+$errorMessage = '';
+
 $entryId = isset($_GET['entry_id']) ? (int)$_GET['entry_id'] : 0;
 $entry = null;
 $logs = [];
@@ -43,6 +61,144 @@ if ($entryId <= 0) {
     <?php
     require_once __DIR__ . '/../includes/footer.php';
     exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $logId = (int)($_POST['log_id'] ?? 0);
+    $rollbackReason = trim($_POST['rollback_reason'] ?? '');
+
+    if ($logId <= 0) {
+        $errorMessage = 'Invalid rollback request.';
+    } else {
+        try {
+            $pdo->beginTransaction();
+
+            $logStmt = $pdo->prepare("
+                SELECT *
+                FROM suggestion_merge_logs
+                WHERE id = :id
+                LIMIT 1
+            ");
+            $logStmt->execute([':id' => $logId]);
+            $log = $logStmt->fetch();
+
+            if (!$log) {
+                throw new RuntimeException('Merge log not found.');
+            }
+
+            if ((int)$log['entry_id'] !== $entryId) {
+                throw new RuntimeException('Rollback entry mismatch.');
+            }
+
+            if ($log['merge_status'] !== 'merged') {
+                throw new RuntimeException('Only merged fields can be rolled back.');
+            }
+
+            if (($log['action_type'] ?? 'merge') !== 'merge') {
+                throw new RuntimeException('Only original merge records can be rolled back.');
+            }
+
+            $targetTable = $log['target_table'];
+            $fieldName = $log['field_name'];
+
+            if (!isset($allowedFieldTargets[$targetTable]) || !in_array($fieldName, $allowedFieldTargets[$targetTable], true)) {
+                throw new RuntimeException('Rollback target is not allowed.');
+            }
+
+            if ($targetTable === 'name_entries') {
+                $updateStmt = $pdo->prepare("
+                    UPDATE name_entries
+                    SET {$fieldName} = :old_value
+                    WHERE id = :entry_id
+                ");
+                $updateStmt->execute([
+                    ':old_value' => $log['old_value'],
+                    ':entry_id' => $entryId,
+                ]);
+            } elseif ($targetTable === 'name_profiles') {
+                $profileCheckStmt = $pdo->prepare("
+                    SELECT id
+                    FROM name_profiles
+                    WHERE entry_id = :entry_id
+                    LIMIT 1
+                ");
+                $profileCheckStmt->execute([':entry_id' => $entryId]);
+                $profile = $profileCheckStmt->fetch();
+
+                if (!$profile) {
+                    $insertProfileStmt = $pdo->prepare("
+                        INSERT INTO name_profiles (entry_id, last_edited_by)
+                        VALUES (:entry_id, :editor)
+                    ");
+                    $insertProfileStmt->execute([
+                        ':entry_id' => $entryId,
+                        ':editor' => currentUser()['id'],
+                    ]);
+                }
+
+                $updateStmt = $pdo->prepare("
+                    UPDATE name_profiles
+                    SET {$fieldName} = :old_value,
+                        last_edited_by = :editor
+                    WHERE entry_id = :entry_id
+                ");
+                $updateStmt->execute([
+                    ':old_value' => $log['old_value'],
+                    ':editor' => currentUser()['id'],
+                    ':entry_id' => $entryId,
+                ]);
+            } else {
+                throw new RuntimeException('Unsupported rollback target.');
+            }
+
+            $rollbackNewValue = $rollbackReason !== ''
+                ? '[Rollback] ' . $rollbackReason
+                : $log['old_value'];
+
+            $insertAuditStmt = $pdo->prepare("
+                INSERT INTO suggestion_merge_logs (
+                    suggestion_id,
+                    entry_id,
+                    field_name,
+                    target_table,
+                    old_value,
+                    new_value,
+                    merge_status,
+                    action_type,
+                    merged_by
+                ) VALUES (
+                    :suggestion_id,
+                    :entry_id,
+                    :field_name,
+                    :target_table,
+                    :old_value,
+                    :new_value,
+                    :merge_status,
+                    :action_type,
+                    :merged_by
+                )
+            ");
+            $insertAuditStmt->execute([
+                ':suggestion_id' => $log['suggestion_id'],
+                ':entry_id' => $entryId,
+                ':field_name' => $fieldName,
+                ':target_table' => $targetTable,
+                ':old_value' => $log['new_value'],
+                ':new_value' => $rollbackNewValue,
+                ':merge_status' => 'merged',
+                ':action_type' => 'rollback',
+                ':merged_by' => currentUser()['id'],
+            ]);
+
+            $pdo->commit();
+            $successMessage = 'Field rolled back successfully.';
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            $errorMessage = 'Failed to roll back the field.';
+        }
+    }
 }
 
 /* Fetch entry */
@@ -83,6 +239,7 @@ $logStmt = $pdo->prepare("
         sml.old_value,
         sml.new_value,
         sml.merge_status,
+        sml.action_type,
         sml.merged_by,
         sml.created_at,
         u.full_name AS editor_name
@@ -136,6 +293,14 @@ require_once __DIR__ . '/../includes/header.php';
             <a href="review-suggestions.php">← Back to Review Dashboard</a>
         </p>
     </section>
+
+    <?php if ($successMessage !== ''): ?>
+        <div class="alert alert-success"><?= htmlspecialchars($successMessage) ?></div>
+    <?php endif; ?>
+
+    <?php if ($errorMessage !== ''): ?>
+        <div class="alert alert-error"><?= htmlspecialchars($errorMessage) ?></div>
+    <?php endif; ?>
 
     <div class="detail-card">
         <h2>Entry Summary</h2>
@@ -199,8 +364,10 @@ require_once __DIR__ . '/../includes/header.php';
                                         <th>Field</th>
                                         <th>Target Table</th>
                                         <th>Status</th>
+                                        <th>Action</th>
                                         <th>Old Value</th>
                                         <th>New Value</th>
+                                        <th>Rollback</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -215,8 +382,23 @@ require_once __DIR__ . '/../includes/header.php';
                                                     <span class="badge badge-pending">Skipped</span>
                                                 <?php endif; ?>
                                             </td>
+                                            <td><?= htmlspecialchars(ucfirst($item['action_type'] ?? 'merge')) ?></td>
                                             <td><?= nl2br(htmlspecialchars($item['old_value'] ?? '—')) ?></td>
                                             <td><?= nl2br(htmlspecialchars($item['new_value'] ?? '—')) ?></td>
+                                            <td>
+                                                <?php if (
+                                                    $item['merge_status'] === 'merged'
+                                                    && ($item['action_type'] ?? 'merge') === 'merge'
+                                                ): ?>
+                                                    <form method="post" action="merge-history.php?entry_id=<?= (int)$entry['id'] ?>">
+                                                        <input type="hidden" name="log_id" value="<?= (int)$item['id'] ?>">
+                                                        <input type="text" name="rollback_reason" placeholder="Optional reason">
+                                                        <button type="submit">Rollback</button>
+                                                    </form>
+                                                <?php else: ?>
+                                                    —
+                                                <?php endif; ?>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </tbody>
