@@ -89,6 +89,10 @@ require_once __DIR__ . '/../includes/header.php';
                         Edit Authority Profile
                     </a>
                 </p>
+                <p><a class="btn-revision" href="merge-history.php?entry_id=<?= (int)$entry['id'] ?>">
+                    View Merge History
+                </a>
+                </p>
             </div>
         <?php endif; ?>
 

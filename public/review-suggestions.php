@@ -33,9 +33,122 @@ function renderDiffBlock(string $label, ?string $current, ?string $proposed): vo
     echo '</div>';
 }
 
+function hasChanged(?string $current, ?string $proposed): bool
+{
+    $current = trim((string)$current);
+    $proposed = trim((string)$proposed);
+
+    return $proposed !== '' && $proposed !== $current;
+}
+
+function hasContent(?string $value): bool
+{
+    return trim((string)$value) !== '';
+}
+
+function getMergeableFields(array $data, array $map): array
+{
+    $result = [];
+
+    foreach ($map as $fieldName => $config) {
+        $current = $data[$config['current_key']] ?? null;
+        $proposed = $data[$config['proposed_key']] ?? null;
+
+        if (hasChanged($current, $proposed)) {
+            $result[$fieldName] = $config;
+        }
+    }
+
+    return $result;
+}
+
 $pageTitle = 'Suggestion Review Dashboard';
 $successMessage = '';
 $errorMessage = '';
+
+$entryFieldMap = [
+    'meaning' => [
+        'label' => 'Meaning',
+        'target_table' => 'name_entries',
+        'current_key' => 'meaning',
+        'proposed_key' => 'proposed_meaning',
+    ],
+    'naming_context' => [
+        'label' => 'Naming Context',
+        'target_table' => 'name_entries',
+        'current_key' => 'naming_context',
+        'proposed_key' => 'proposed_naming_context',
+    ],
+    'cultural_explanation' => [
+        'label' => 'Cultural Explanation',
+        'target_table' => 'name_entries',
+        'current_key' => 'cultural_explanation',
+        'proposed_key' => 'proposed_cultural_explanation',
+    ],
+    'sources' => [
+        'label' => 'Sources',
+        'target_table' => 'name_entries',
+        'current_key' => 'sources',
+        'proposed_key' => 'proposed_sources',
+    ],
+];
+
+$profileFieldMap = [
+    'overview' => [
+        'label' => 'Overview',
+        'target_table' => 'name_profiles',
+        'current_key' => 'overview',
+        'proposed_key' => 'proposed_overview',
+    ],
+    'linguistic_origin' => [
+        'label' => 'Linguistic Origin',
+        'target_table' => 'name_profiles',
+        'current_key' => 'linguistic_origin',
+        'proposed_key' => 'proposed_linguistic_origin',
+    ],
+    'cultural_significance' => [
+        'label' => 'Cultural Significance',
+        'target_table' => 'name_profiles',
+        'current_key' => 'cultural_significance',
+        'proposed_key' => 'proposed_cultural_significance',
+    ],
+    'historical_context' => [
+        'label' => 'Historical Context',
+        'target_table' => 'name_profiles',
+        'current_key' => 'historical_context',
+        'proposed_key' => 'proposed_historical_context',
+    ],
+    'variants' => [
+        'label' => 'Variants',
+        'target_table' => 'name_profiles',
+        'current_key' => 'variants',
+        'proposed_key' => 'proposed_variants',
+    ],
+    'pronunciation' => [
+        'label' => 'Pronunciation',
+        'target_table' => 'name_profiles',
+        'current_key' => 'pronunciation',
+        'proposed_key' => 'proposed_pronunciation',
+    ],
+    'related_names' => [
+        'label' => 'Related Names',
+        'target_table' => 'name_profiles',
+        'current_key' => 'related_names',
+        'proposed_key' => 'proposed_related_names',
+    ],
+    'scholarly_notes' => [
+        'label' => 'Scholarly Notes',
+        'target_table' => 'name_profiles',
+        'current_key' => 'scholarly_notes',
+        'proposed_key' => 'proposed_scholarly_notes',
+    ],
+    'references_text' => [
+        'label' => 'References',
+        'target_table' => 'name_profiles',
+        'current_key' => 'references_text',
+        'proposed_key' => 'proposed_references_text',
+    ],
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $suggestionId = (int)($_POST['suggestion_id'] ?? 0);
@@ -57,17 +170,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $pdo->beginTransaction();
 
-            $stmt = $pdo->prepare("
+            $suggestionStmt = $pdo->prepare("
                 SELECT *
                 FROM name_suggestions
                 WHERE id = :id
                 LIMIT 1
             ");
-            $stmt->execute([':id' => $suggestionId]);
-            $suggestion = $stmt->fetch();
+            $suggestionStmt->execute([':id' => $suggestionId]);
+            $suggestion = $suggestionStmt->fetch();
 
             if (!$suggestion) {
                 throw new RuntimeException('Suggestion not found.');
+            }
+
+            $currentEntryStmt = $pdo->prepare("
+                SELECT id, meaning, naming_context, cultural_explanation, sources
+                FROM name_entries
+                WHERE id = :entry_id
+                LIMIT 1
+            ");
+            $currentEntryStmt->execute([':entry_id' => $suggestion['entry_id']]);
+            $currentEntry = $currentEntryStmt->fetch();
+
+            if (!$currentEntry) {
+                throw new RuntimeException('Related name entry not found.');
+            }
+
+            $profileCheckStmt = $pdo->prepare("
+                SELECT id, overview, linguistic_origin, cultural_significance, historical_context,
+                       variants, pronunciation, related_names, scholarly_notes, references_text
+                FROM name_profiles
+                WHERE entry_id = :entry_id
+                LIMIT 1
+            ");
+            $profileCheckStmt->execute([':entry_id' => $suggestion['entry_id']]);
+            $currentProfile = $profileCheckStmt->fetch();
+
+            if (!$currentProfile) {
+                $currentProfile = [
+                    'id' => null,
+                    'overview' => null,
+                    'linguistic_origin' => null,
+                    'cultural_significance' => null,
+                    'historical_context' => null,
+                    'variants' => null,
+                    'pronunciation' => null,
+                    'related_names' => null,
+                    'scholarly_notes' => null,
+                    'references_text' => null,
+                ];
             }
 
             $newStatus = ($action === 'reject') ? 'rejected' : 'approved';
@@ -88,106 +239,122 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
 
             if ($action === 'approve_merge') {
-                $entryFields = [];
-                $entryParams = [
+                $logStmt = $pdo->prepare("
+                    INSERT INTO suggestion_merge_logs (
+                        suggestion_id,
+                        entry_id,
+                        field_name,
+                        target_table,
+                        old_value,
+                        new_value,
+                        merge_status,
+                        merged_by
+                    ) VALUES (
+                        :suggestion_id,
+                        :entry_id,
+                        :field_name,
+                        :target_table,
+                        :old_value,
+                        :new_value,
+                        :merge_status,
+                        :merged_by
+                    )
+                ");
+
+                $entryUpdateParts = [];
+                $entryUpdateParams = [
                     ':entry_id' => $suggestion['entry_id'],
                 ];
 
-                if (in_array('meaning', $mergeFields, true)) {
-                    $entryFields[] = 'meaning = :meaning';
-                    $entryParams[':meaning'] = $suggestion['proposed_meaning'];
+                foreach ($entryFieldMap as $fieldName => $config) {
+                    $oldValue = $currentEntry[$config['current_key']] ?? null;
+                    $newValue = $suggestion[$config['proposed_key']] ?? null;
+                    $wasSelected = in_array($fieldName, $mergeFields, true);
+
+                    if (!hasContent($newValue)) {
+                        continue;
+                    }
+
+                    if ($wasSelected && hasChanged($oldValue, $newValue)) {
+                        $entryUpdateParts[] = $fieldName . ' = :' . $fieldName;
+                        $entryUpdateParams[':' . $fieldName] = $newValue;
+                    }
+
+                    $logStmt->execute([
+                        ':suggestion_id' => $suggestion['id'],
+                        ':entry_id' => $suggestion['entry_id'],
+                        ':field_name' => $fieldName,
+                        ':target_table' => $config['target_table'],
+                        ':old_value' => $oldValue,
+                        ':new_value' => $newValue,
+                        ':merge_status' => ($wasSelected && hasChanged($oldValue, $newValue)) ? 'merged' : 'skipped',
+                        ':merged_by' => currentUser()['id'],
+                    ]);
                 }
 
-                if (in_array('naming_context', $mergeFields, true)) {
-                    $entryFields[] = 'naming_context = :naming_context';
-                    $entryParams[':naming_context'] = $suggestion['proposed_naming_context'];
-                }
-
-                if (in_array('cultural_explanation', $mergeFields, true)) {
-                    $entryFields[] = 'cultural_explanation = :cultural_explanation';
-                    $entryParams[':cultural_explanation'] = $suggestion['proposed_cultural_explanation'];
-                }
-
-                if (in_array('sources', $mergeFields, true)) {
-                    $entryFields[] = 'sources = :sources';
-                    $entryParams[':sources'] = $suggestion['proposed_sources'];
-                }
-
-                if (!empty($entryFields)) {
+                if (!empty($entryUpdateParts)) {
                     $updateEntryStmt = $pdo->prepare("
                         UPDATE name_entries
-                        SET " . implode(', ', $entryFields) . "
+                        SET " . implode(', ', $entryUpdateParts) . "
                         WHERE id = :entry_id
                     ");
-                    $updateEntryStmt->execute($entryParams);
+                    $updateEntryStmt->execute($entryUpdateParams);
                 }
 
-                $profileFieldKeys = [
-                    'overview',
-                    'linguistic_origin',
-                    'cultural_significance',
-                    'historical_context',
-                    'variants',
-                    'pronunciation',
-                    'related_names',
-                    'scholarly_notes',
-                    'references_text',
+                $profileUpdateParts = [];
+                $profileUpdateParams = [
+                    ':entry_id' => $suggestion['entry_id'],
+                    ':editor' => currentUser()['id'],
                 ];
+                $needsProfileRow = false;
 
-                $selectedProfileFields = array_values(array_intersect($profileFieldKeys, $mergeFields));
+                foreach ($profileFieldMap as $fieldName => $config) {
+                    $oldValue = $currentProfile[$config['current_key']] ?? null;
+                    $newValue = $suggestion[$config['proposed_key']] ?? null;
+                    $wasSelected = in_array($fieldName, $mergeFields, true);
 
-                if (!empty($selectedProfileFields)) {
-                    $profileCheckStmt = $pdo->prepare("
-                        SELECT id
-                        FROM name_profiles
-                        WHERE entry_id = :entry_id
-                        LIMIT 1
-                    ");
-                    $profileCheckStmt->execute([':entry_id' => $suggestion['entry_id']]);
-                    $profile = $profileCheckStmt->fetch();
-
-                    if (!$profile) {
-                        $insertProfileStmt = $pdo->prepare("
-                            INSERT INTO name_profiles (entry_id, last_edited_by)
-                            VALUES (:entry_id, :editor)
-                        ");
-                        $insertProfileStmt->execute([
-                            ':entry_id' => $suggestion['entry_id'],
-                            ':editor' => currentUser()['id'],
-                        ]);
+                    if (!hasContent($newValue)) {
+                        continue;
                     }
 
-                    $profileMap = [
-                        'overview' => 'proposed_overview',
-                        'linguistic_origin' => 'proposed_linguistic_origin',
-                        'cultural_significance' => 'proposed_cultural_significance',
-                        'historical_context' => 'proposed_historical_context',
-                        'variants' => 'proposed_variants',
-                        'pronunciation' => 'proposed_pronunciation',
-                        'related_names' => 'proposed_related_names',
-                        'scholarly_notes' => 'proposed_scholarly_notes',
-                        'references_text' => 'proposed_references_text',
-                    ];
+                    if ($wasSelected && hasChanged($oldValue, $newValue)) {
+                        $needsProfileRow = true;
+                        $profileUpdateParts[] = $fieldName . ' = :' . $fieldName;
+                        $profileUpdateParams[':' . $fieldName] = $newValue;
+                        }
 
-                    $profileFields = [];
-                    $profileParams = [
+                    $logStmt->execute([
+                        ':suggestion_id' => $suggestion['id'],
+                        ':entry_id' => $suggestion['entry_id'],
+                        ':field_name' => $fieldName,
+                        ':target_table' => $config['target_table'],
+                        ':old_value' => $oldValue,
+                        ':new_value' => $newValue,
+                        ':merge_status' => ($wasSelected && hasChanged($oldValue, $newValue)) ? 'merged' : 'skipped',
+                        ':merged_by' => currentUser()['id'],
+                    ]);
+                }
+
+                if ($needsProfileRow && !$currentProfile['id']) {
+                    $insertProfileStmt = $pdo->prepare("
+                        INSERT INTO name_profiles (entry_id, last_edited_by)
+                        VALUES (:entry_id, :editor)
+                    ");
+                    $insertProfileStmt->execute([
                         ':entry_id' => $suggestion['entry_id'],
                         ':editor' => currentUser()['id'],
-                    ];
+                    ]);
+                }
 
-                    foreach ($selectedProfileFields as $field) {
-                        $profileFields[] = $field . ' = :' . $field;
-                        $profileParams[':' . $field] = $suggestion[$profileMap[$field]];
-                    }
-
-                    $profileFields[] = 'last_edited_by = :editor';
+                if (!empty($profileUpdateParts)) {
+                    $profileUpdateParts[] = 'last_edited_by = :editor';
 
                     $updateProfileStmt = $pdo->prepare("
                         UPDATE name_profiles
-                        SET " . implode(', ', $profileFields) . "
+                        SET " . implode(', ', $profileUpdateParts) . "
                         WHERE entry_id = :entry_id
                     ");
-                    $updateProfileStmt->execute($profileParams);
+                    $updateProfileStmt->execute($profileUpdateParams);
                 }
             }
 
@@ -232,6 +399,8 @@ if ($selectedId <= 0 && !empty($pendingSuggestions)) {
 }
 
 $selectedSuggestion = null;
+$mergeableEntryFields = [];
+$mergeableProfileFields = [];
 
 if ($selectedId > 0) {
     $detailStmt = $pdo->prepare("
@@ -263,15 +432,30 @@ if ($selectedId > 0) {
             ne.naming_context,
             ne.cultural_explanation,
             ne.sources,
+            np.overview,
+            np.linguistic_origin,
+            np.cultural_significance,
+            np.historical_context,
+            np.variants,
+            np.pronunciation,
+            np.related_names,
+            np.scholarly_notes,
+            np.references_text,
             u.full_name AS suggested_by_name
         FROM name_suggestions ns
         INNER JOIN name_entries ne ON ns.entry_id = ne.id
+        LEFT JOIN name_profiles np ON np.entry_id = ne.id
         LEFT JOIN users u ON ns.suggested_by = u.id
         WHERE ns.id = :id
         LIMIT 1
     ");
     $detailStmt->execute([':id' => $selectedId]);
     $selectedSuggestion = $detailStmt->fetch();
+
+    if ($selectedSuggestion) {
+        $mergeableEntryFields = getMergeableFields($selectedSuggestion, $entryFieldMap);
+        $mergeableProfileFields = getMergeableFields($selectedSuggestion, $profileFieldMap);
+    }
 }
 
 require_once __DIR__ . '/../includes/header.php';
@@ -357,25 +541,43 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="detail-card">
                     <h2>Change Review (Diff View)</h2>
 
-                    <?php
-                    renderDiffBlock('Meaning', $selectedSuggestion['meaning'], $selectedSuggestion['proposed_meaning']);
-                    renderDiffBlock('Naming Context', $selectedSuggestion['naming_context'], $selectedSuggestion['proposed_naming_context']);
-                    renderDiffBlock('Cultural Explanation', $selectedSuggestion['cultural_explanation'], $selectedSuggestion['proposed_cultural_explanation']);
-                    renderDiffBlock('Sources', $selectedSuggestion['sources'], $selectedSuggestion['proposed_sources']);
-                    renderDiffBlock('Overview', null, $selectedSuggestion['proposed_overview']);
-                    renderDiffBlock('Linguistic Origin', null, $selectedSuggestion['proposed_linguistic_origin']);
-                    renderDiffBlock('Cultural Significance', null, $selectedSuggestion['proposed_cultural_significance']);
-                    renderDiffBlock('Historical Context', null, $selectedSuggestion['proposed_historical_context']);
-                    renderDiffBlock('Variants', null, $selectedSuggestion['proposed_variants']);
-                    renderDiffBlock('Pronunciation', null, $selectedSuggestion['proposed_pronunciation']);
-                    renderDiffBlock('Related Names', null, $selectedSuggestion['proposed_related_names']);
-                    renderDiffBlock('Scholarly Notes', null, $selectedSuggestion['proposed_scholarly_notes']);
-                    renderDiffBlock('References', null, $selectedSuggestion['proposed_references_text']);
-                    ?>
+                    <?php foreach ($mergeableEntryFields as $config): ?>
+                        <?php renderDiffBlock(
+                            $config['label'],
+                            $selectedSuggestion[$config['current_key']] ?? null,
+                            $selectedSuggestion[$config['proposed_key']] ?? null
+                        ); ?>
+                    <?php endforeach; ?>
+
+                    <?php foreach ($mergeableProfileFields as $config): ?>
+                        <?php renderDiffBlock(
+                            $config['label'],
+                            $selectedSuggestion[$config['current_key']] ?? null,
+                            $selectedSuggestion[$config['proposed_key']] ?? null
+                        ); ?>
+                    <?php endforeach; ?>
+
+                    <?php if (empty($mergeableEntryFields) && empty($mergeableProfileFields)): ?>
+                        <p><strong>No mergeable field changes detected.</strong></p>
+                    <?php endif; ?>
+
+                    <?php if (hasContent($selectedSuggestion['contributor_notes'] ?? null)): ?>
+                        <div class="review-block">
+                            <h3>Contributor Notes</h3>
+                            <p><?= nl2br(htmlspecialchars($selectedSuggestion['contributor_notes'])) ?></p>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <div class="detail-card">
                     <h2>Current Published Content</h2>
+                    <p>
+                        <a href="name.php?id=<?= (int)$selectedSuggestion['entry_id'] ?>">View Public Page</a>
+                        |
+                        <a href="edit-profile.php?entry_id=<?= (int)$selectedSuggestion['entry_id'] ?>">Open Profile Editor</a>
+                        |
+                        <a href="merge-history.php?entry_id=<?= (int)$selectedSuggestion['entry_id'] ?>">View Merge History</a>
+                    </p>
 
                     <div class="review-block">
                         <h3>Current Cultural Explanation</h3>
@@ -395,11 +597,6 @@ require_once __DIR__ . '/../includes/header.php';
                         </p>
                     </div>
 
-                    <p>
-                        <a href="name.php?id=<?= (int)$selectedSuggestion['entry_id'] ?>">View Public Page</a>
-                        |
-                        <a href="edit-profile.php?entry_id=<?= (int)$selectedSuggestion['entry_id'] ?>">Open Profile Editor</a>
-                    </p>
                 </div>
 
                 <div class="detail-card">
@@ -411,56 +608,23 @@ require_once __DIR__ . '/../includes/header.php';
                         <div class="form-group">
                             <label>Merge Selected Fields</label>
                             <div class="merge-options">
-                                <?php if (!empty($selectedSuggestion['proposed_meaning']) && trim((string)$selectedSuggestion['proposed_meaning']) !== trim((string)$selectedSuggestion['meaning'])): ?>
-                                    <label><input type="checkbox" name="merge_fields[]" value="meaning"> Meaning</label><br>
-                                <?php endif; ?>
 
-                                <?php if (!empty($selectedSuggestion['proposed_naming_context']) && trim((string)$selectedSuggestion['proposed_naming_context']) !== trim((string)$selectedSuggestion['naming_context'])): ?>
-                                    <label><input type="checkbox" name="merge_fields[]" value="naming_context"> Naming Context</label><br>
-                                <?php endif; ?>
+                                <?php foreach ($mergeableEntryFields as $fieldName => $config): ?>
+                                    <label>
+                                        <input type="checkbox" name="merge_fields[]" value="<?= htmlspecialchars($fieldName) ?>">
+                                        <?= htmlspecialchars($config['label']) ?>
+                                    </label><br>
+                                <?php endforeach; ?>
 
-                                <?php if (!empty($selectedSuggestion['proposed_cultural_explanation']) && trim((string)$selectedSuggestion['proposed_cultural_explanation']) !== trim((string)$selectedSuggestion['cultural_explanation'])): ?>
-                                    <label><input type="checkbox" name="merge_fields[]" value="cultural_explanation"> Cultural Explanation</label><br>
-                                <?php endif; ?>
+                                <?php foreach ($mergeableProfileFields as $fieldName => $config): ?>
+                                    <label>
+                                        <input type="checkbox" name="merge_fields[]" value="<?= htmlspecialchars($fieldName) ?>">
+                                        <?= htmlspecialchars($config['label']) ?>
+                                    </label><br>
+                                <?php endforeach; ?>
 
-                                <?php if (!empty($selectedSuggestion['proposed_sources']) && trim((string)$selectedSuggestion['proposed_sources']) !== trim((string)$selectedSuggestion['sources'])): ?>
-                                    <label><input type="checkbox" name="merge_fields[]" value="sources"> Sources</label><br>
-                                <?php endif; ?>
-
-                                <?php if (!empty($selectedSuggestion['proposed_overview'])): ?>
-                                    <label><input type="checkbox" name="merge_fields[]" value="overview"> Overview</label><br>
-                                <?php endif; ?>
-
-                                <?php if (!empty($selectedSuggestion['proposed_linguistic_origin'])): ?>
-                                    <label><input type="checkbox" name="merge_fields[]" value="linguistic_origin"> Linguistic Origin</label><br>
-                                <?php endif; ?>
-
-                                <?php if (!empty($selectedSuggestion['proposed_cultural_significance'])): ?>
-                                    <label><input type="checkbox" name="merge_fields[]" value="cultural_significance"> Cultural Significance</label><br>
-                                <?php endif; ?>
-
-                                <?php if (!empty($selectedSuggestion['proposed_historical_context'])): ?>
-                                    <label><input type="checkbox" name="merge_fields[]" value="historical_context"> Historical Context</label><br>
-                                <?php endif; ?>
-
-                                <?php if (!empty($selectedSuggestion['proposed_variants'])): ?>
-                                    <label><input type="checkbox" name="merge_fields[]" value="variants"> Variants</label><br>
-                                <?php endif; ?>
-
-                                <?php if (!empty($selectedSuggestion['proposed_pronunciation'])): ?>
-                                    <label><input type="checkbox" name="merge_fields[]" value="pronunciation"> Pronunciation</label><br>
-                                <?php endif; ?>
-
-                                <?php if (!empty($selectedSuggestion['proposed_related_names'])): ?>
-                                    <label><input type="checkbox" name="merge_fields[]" value="related_names"> Related Names</label><br>
-                                <?php endif; ?>
-
-                                <?php if (!empty($selectedSuggestion['proposed_scholarly_notes'])): ?>
-                                    <label><input type="checkbox" name="merge_fields[]" value="scholarly_notes"> Scholarly Notes</label><br>
-                                <?php endif; ?>
-
-                                <?php if (!empty($selectedSuggestion['proposed_references_text'])): ?>
-                                    <label><input type="checkbox" name="merge_fields[]" value="references_text"> References</label><br>
+                                <?php if (empty($mergeableEntryFields) && empty($mergeableProfileFields)): ?>
+                                    <p>No mergeable fields available.</p>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -477,7 +641,15 @@ require_once __DIR__ . '/../includes/header.php';
 
                         <div class="review-actions">
                             <button type="submit" name="action" value="approve" class="btn-approve">Approve Only</button>
-                            <button type="submit" name="action" value="approve_merge" class="btn-approve">Approve & Merge</button>
+                            <button
+                                type="submit"
+                                name="action"
+                                value="approve_merge"
+                                class="btn-approve"
+                                <?= (empty($mergeableEntryFields) && empty($mergeableProfileFields)) ? 'disabled' : '' ?>
+                            >
+                                Approve & Merge
+                            </button>
                             <button type="submit" name="action" value="reject" class="btn-reject">Reject</button>
                         </div>
                     </form>

@@ -119,3 +119,25 @@ CREATE TABLE IF NOT EXISTS name_suggestions (
         FOREIGN KEY (reviewed_by) REFERENCES users(id)
         ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS suggestion_merge_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    suggestion_id INT NOT NULL,
+    entry_id INT NOT NULL,
+    field_name VARCHAR(100) NOT NULL,
+    target_table ENUM('name_entries', 'name_profiles') NOT NULL,
+    old_value TEXT,
+    new_value TEXT,
+    merge_status ENUM('merged', 'skipped') NOT NULL,
+    merged_by INT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_merge_logs_suggestion
+        FOREIGN KEY (suggestion_id) REFERENCES name_suggestions(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_merge_logs_entry
+        FOREIGN KEY (entry_id) REFERENCES name_entries(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_merge_logs_user
+        FOREIGN KEY (merged_by) REFERENCES users(id)
+        ON DELETE SET NULL
+);

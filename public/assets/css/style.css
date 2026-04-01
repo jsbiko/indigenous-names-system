@@ -575,3 +575,26 @@ nav a {
   display: block;
   margin-bottom: 8px;
 }
+
+/*merge history table*/
+.merge-history-table-wrapper {
+  overflow-x: auto;
+}
+
+.merge-history-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.merge-history-table th,
+.merge-history-table td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  vertical-align: top;
+  text-align: left;
+}
+
+.merge-history-table th {
+  background: #f7f7f7;
+}
