@@ -8,6 +8,22 @@ requireRole(['editor', 'admin']);
 
 $pageTitle = 'Merge History';
 
+$fieldLabels = [
+    'meaning' => 'Meaning',
+    'naming_context' => 'Naming Context',
+    'cultural_explanation' => 'Cultural Explanation',
+    'sources' => 'Sources',
+    'overview' => 'Overview',
+    'linguistic_origin' => 'Linguistic Origin',
+    'cultural_significance' => 'Cultural Significance',
+    'historical_context' => 'Historical Context',
+    'variants' => 'Variants',
+    'pronunciation' => 'Pronunciation',
+    'related_names' => 'Related Names',
+    'scholarly_notes' => 'Scholarly Notes',
+    'references_text' => 'References',
+];
+
 $entryId = isset($_GET['entry_id']) ? (int)$_GET['entry_id'] : 0;
 $entry = null;
 $logs = [];
@@ -90,6 +106,10 @@ foreach ($logs as $log) {
             'editor_name' => $log['editor_name'] ?? 'Unknown editor',
             'items' => [],
         ];
+    } else {
+        if ($log['created_at'] > $groupedLogs[$suggestionKey]['created_at']) {
+            $groupedLogs[$suggestionKey]['created_at'] = $log['created_at'];
+        }
     }
 
     $groupedLogs[$suggestionKey]['items'][] = $log;
@@ -111,6 +131,9 @@ require_once __DIR__ . '/../includes/header.php';
         <h1>Merge History</h1>
         <p class="detail-meaning">
             Editorial audit trail for <strong><?= htmlspecialchars($entry['name']) ?></strong>.
+        </p>
+        <p>
+            <a href="review-suggestions.php">← Back to Review Dashboard</a>
         </p>
     </section>
 
@@ -183,7 +206,7 @@ require_once __DIR__ . '/../includes/header.php';
                                 <tbody>
                                     <?php foreach ($group['items'] as $item): ?>
                                         <tr>
-                                            <td><?= htmlspecialchars($item['field_name']) ?></td>
+                                            <td><?= htmlspecialchars($fieldLabels[$item['field_name']] ?? $item['field_name']) ?></td>
                                             <td><?= htmlspecialchars($item['target_table']) ?></td>
                                             <td>
                                                 <?php if ($item['merge_status'] === 'merged'): ?>
