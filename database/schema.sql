@@ -154,3 +154,24 @@ CREATE TABLE password_resets (
     expires_at DATETIME NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE user_role_audit (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    changed_by INT NOT NULL,
+    old_role VARCHAR(50),
+    new_role VARCHAR(50),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE user_role_audit (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    changed_by INT NOT NULL,
+    old_role VARCHAR(50) NOT NULL,
+    new_role VARCHAR(50) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_user_id (user_id),
+    INDEX idx_changed_by (changed_by),
+    INDEX idx_created_at (created_at)
+);

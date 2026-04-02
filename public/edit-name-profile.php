@@ -178,7 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
         }
 
-        header('Location: edit-profile.php?entry_id=' . $entryId . '&saved=1');
+        header('Location: edit-name-profile.php?entry_id=' . $entryId . '&saved=1');
         exit;
     } catch (Throwable $e) {
         $errorMessage = 'Failed to save the authority profile.';
@@ -233,7 +233,7 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="detail-card">
                 <h2>Authority Profile Content</h2>
 
-                <form method="post" action="edit-profile.php?entry_id=<?= (int)$entry['id'] ?>">
+                <form method="post" action="edit-name-profile.php?entry_id=<?= (int)$entry['id'] ?>">
                     <div class="form-group">
                         <label for="overview">Overview</label>
                         <textarea id="overview" name="overview" rows="5"><?= htmlspecialchars($formData['overview']) ?></textarea>

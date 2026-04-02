@@ -600,7 +600,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <p class="review-links">
                         <a href="name.php?id=<?= (int)$selectedSuggestion['entry_id'] ?>">View Public Page</a>
                         |
-                        <a href="edit-profile.php?entry_id=<?= (int)$selectedSuggestion['entry_id'] ?>">Open Profile Editor</a>
+                        <a href="edit-name-profile.php?entry_id=<?= (int)$selectedSuggestion['entry_id'] ?>">Open Profile Editor</a>
                         |
                         <a href="merge-history.php?entry_id=<?= (int)$selectedSuggestion['entry_id'] ?>">View Merge History</a>
                     </p>

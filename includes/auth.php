@@ -1,10 +1,20 @@
 <?php
 declare(strict_types=1);
 
-if (session_status() === PHP_SESSION_NONE) {
+/**
+ * ------------------------------------------------------------
+ * Session bootstrap
+ * ------------------------------------------------------------
+ */
+if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+/**
+ * ------------------------------------------------------------
+ * Authentication helpers
+ * ------------------------------------------------------------
+ */
 function isLoggedIn(): bool
 {
     return isset($_SESSION['user']) && is_array($_SESSION['user']);
@@ -12,65 +22,78 @@ function isLoggedIn(): bool
 
 function currentUser(): ?array
 {
-    return $_SESSION['user'] ?? null;
+    if (!isLoggedIn()) {
+        return null;
+    }
+
+    $user = $_SESSION['user'];
+
+    return [
+        'id'    => isset($user['id']) ? (int)$user['id'] : 0,
+        'name'  => isset($user['name']) ? trim((string)$user['name']) : '',
+        'email' => isset($user['email']) ? trim((string)$user['email']) : '',
+        'role'  => isset($user['role']) ? trim((string)$user['role']) : 'contributor',
+    ];
 }
 
 function requireLogin(): void
 {
     if (!isLoggedIn()) {
-        header('Location: login.php');
+        $_SESSION['flash_error'] = 'Please log in to continue.';
+        header('Location: /login.php');
         exit;
     }
+}
+
+/**
+ * ------------------------------------------------------------
+ * Role helpers
+ * ------------------------------------------------------------
+ */
+function hasRole(array $allowedRoles): bool
+{
+    $user = currentUser();
+
+    if (!$user) {
+        return false;
+    }
+
+    $userRole = strtolower(trim((string)($user['role'] ?? 'contributor')));
+    $normalizedAllowedRoles = array_map(
+        static fn ($role) => strtolower(trim((string)$role)),
+        $allowedRoles
+    );
+
+    return in_array($userRole, $normalizedAllowedRoles, true);
 }
 
 function requireRole(array $allowedRoles): void
 {
     requireLogin();
 
-    $user = currentUser();
-    if (!$user || !in_array($user['role'], $allowedRoles, true)) {
+    if (!hasRole($allowedRoles)) {
         http_response_code(403);
-        echo 'Access denied.';
+        $_SESSION['flash_error'] = 'You do not have permission to access that page.';
+        header('Location: /dashboard.php');
         exit;
     }
 }
 
-function isAdmin(): bool
+/**
+ * ------------------------------------------------------------
+ * Session write helpers
+ * ------------------------------------------------------------
+ */
+function loginUser(array $user): void
 {
-    $user = currentUser();
-    return $user !== null && ($user['role'] ?? null) === 'admin';
-}
+    session_regenerate_id(true);
 
-function isEditor(): bool
-{
-    $user = currentUser();
-    return $user !== null && ($user['role'] ?? null) === 'editor';
-}
-
-function isContributor(): bool
-{
-    $user = currentUser();
-    return $user !== null && ($user['role'] ?? null) === 'contributor';
-}
-
-function redirectAfterLogin(): void
-{
-    $user = currentUser();
-
-    if (!$user) {
-        header('Location: login.php');
-        exit;
-    }
-
-    $role = $user['role'] ?? '';
-
-    if ($role === 'admin' || $role === 'editor') {
-        header('Location: dashboard.php');
-        exit;
-    }
-
-    header('Location: dashboard.php');
-    exit;
+    $_SESSION['user'] = [
+        'id'    => isset($user['id']) ? (int)$user['id'] : 0,
+        'name'  => isset($user['name']) ? trim((string)$user['name']) : '',
+        'email' => isset($user['email']) ? trim((string)$user['email']) : '',
+        'role'  => isset($user['role']) ? trim((string)$user['role']) : 'contributor',
+    ];
 }
 
 function logoutUser(): void
@@ -83,10 +106,10 @@ function logoutUser(): void
             session_name(),
             '',
             time() - 42000,
-            $params['path'],
-            $params['domain'],
-            (bool)$params['secure'],
-            (bool)$params['httponly']
+            $params['path'] ?? '/',
+            $params['domain'] ?? '',
+            (bool)($params['secure'] ?? false),
+            (bool)($params['httponly'] ?? true)
         );
     }
 

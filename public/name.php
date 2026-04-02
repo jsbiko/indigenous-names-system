@@ -100,7 +100,7 @@ require_once __DIR__ . '/../includes/header.php';
                 </p>
 
                 <div class="editorial-actions">
-                    <a class="btn-primary" href="edit-profile.php?entry_id=<?= (int)$entry['id'] ?>">
+                    <a class="btn-primary" href="edit-name-profile.php?entry_id=<?= (int)$entry['id'] ?>">
                         Edit Authority Profile
                     </a>
 

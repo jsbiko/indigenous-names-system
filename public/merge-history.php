@@ -340,7 +340,7 @@ require_once __DIR__ . '/../includes/header.php';
         <p>
             <a href="name.php?id=<?= (int)$entry['id'] ?>">View Public Page</a>
             |
-            <a href="edit-profile.php?entry_id=<?= (int)$entry['id'] ?>">Open Profile Editor</a>
+            <a href="edit-name-profile.php?entry_id=<?= (int)$entry['id'] ?>">Open Profile Editor</a>
         </p>
     </div>
 

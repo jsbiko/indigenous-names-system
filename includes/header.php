@@ -22,7 +22,7 @@ $cssVersion = file_exists($cssFile) ? (string)filemtime($cssFile) : (string)time
     <title><?= htmlspecialchars($pageTitle) ?></title>
     <link rel="stylesheet" href="assets/css/style.css?v=<?= htmlspecialchars($cssVersion) ?>">
 </head>
-<body>
+<body class="<?= isset($bodyClass) ? htmlspecialchars($bodyClass, ENT_QUOTES, 'UTF-8') : '' ?>">
 <header class="site-header site-header-modern">
     <div class="container nav nav-modern">
         <a href="index.php" class="brand">
