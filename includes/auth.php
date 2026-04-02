@@ -7,7 +7,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 function isLoggedIn(): bool
 {
-    return isset($_SESSION['user']);
+    return isset($_SESSION['user']) && is_array($_SESSION['user']);
 }
 
 function currentUser(): ?array
@@ -35,6 +35,44 @@ function requireRole(array $allowedRoles): void
     }
 }
 
+function isAdmin(): bool
+{
+    $user = currentUser();
+    return $user !== null && ($user['role'] ?? null) === 'admin';
+}
+
+function isEditor(): bool
+{
+    $user = currentUser();
+    return $user !== null && ($user['role'] ?? null) === 'editor';
+}
+
+function isContributor(): bool
+{
+    $user = currentUser();
+    return $user !== null && ($user['role'] ?? null) === 'contributor';
+}
+
+function redirectAfterLogin(): void
+{
+    $user = currentUser();
+
+    if (!$user) {
+        header('Location: login.php');
+        exit;
+    }
+
+    $role = $user['role'] ?? '';
+
+    if ($role === 'admin' || $role === 'editor') {
+        header('Location: dashboard.php');
+        exit;
+    }
+
+    header('Location: dashboard.php');
+    exit;
+}
+
 function logoutUser(): void
 {
     $_SESSION = [];
@@ -47,8 +85,8 @@ function logoutUser(): void
             time() - 42000,
             $params['path'],
             $params['domain'],
-            $params['secure'],
-            $params['httponly']
+            (bool)$params['secure'],
+            (bool)$params['httponly']
         );
     }
 

@@ -16,7 +16,7 @@ function renderDiffBlock(string $label, ?string $current, ?string $proposed): vo
     }
 
     echo '<div class="diff-block">';
-    echo '<h3>' . htmlspecialchars($label) . '</h3>';
+    echo '<div class="diff-header"><h3>' . htmlspecialchars($label) . '</h3></div>';
     echo '<div class="diff-grid">';
 
     echo '<div class="diff-old">';
@@ -62,7 +62,7 @@ function getMergeableFields(array $data, array $map): array
     return $result;
 }
 
-$pageTitle = 'Suggestion Review Dashboard';
+$pageTitle = 'Suggestion Review Dashboard | Indigenous African Names System';
 $successMessage = '';
 $errorMessage = '';
 
@@ -467,8 +467,11 @@ require_once __DIR__ . '/../includes/header.php';
 
 <main class="container page-section">
     <section class="detail-hero">
-        <h1>Suggestion Review Dashboard</h1>
-        <p class="detail-meaning">Review community improvements before applying them to authority content.</p>
+        <span class="eyebrow">Editorial Merge Console</span>
+        <h1>Review Suggestions</h1>
+        <p class="detail-meaning">
+            Compare proposed changes against published content, approve safely, and merge only what should become part of the public record.
+        </p>
     </section>
 
     <?php if ($successMessage !== ''): ?>
@@ -479,22 +482,25 @@ require_once __DIR__ . '/../includes/header.php';
         <div class="alert alert-error"><?= htmlspecialchars($errorMessage) ?></div>
     <?php endif; ?>
 
-    <div class="review-layout">
-        <aside class="review-sidebar detail-card">
-            <h2>Pending Suggestions</h2>
+    <div class="review-layout review-layout-enhanced">
+        <aside class="review-sidebar detail-card review-sidebar-enhanced">
+            <div class="queue-header">
+                <h2>Pending Suggestions</h2>
+                <span class="queue-count"><?= count($pendingSuggestions) ?></span>
+            </div>
 
             <?php if (!empty($pendingSuggestions)): ?>
                 <div class="pending-list">
                     <?php foreach ($pendingSuggestions as $item): ?>
                         <a
-                            class="pending-item <?= ((int)$item['id'] === $selectedId) ? 'pending-item-active' : '' ?>"
+                            class="pending-item pending-item-enhanced <?= ((int)$item['id'] === $selectedId) ? 'pending-item-active' : '' ?>"
                             href="review-suggestions.php?id=<?= (int)$item['id'] ?>"
                         >
-                            <strong><?= htmlspecialchars($item['name']) ?></strong><br>
-                            <span><?= htmlspecialchars($item['ethnic_group']) ?></span><br>
-                            <small>Type: <?= htmlspecialchars($item['suggestion_type']) ?></small><br>
-                            <small>By: <?= htmlspecialchars($item['suggested_by_name'] ?? 'Unknown contributor') ?></small><br>
-                            <small><?= htmlspecialchars($item['created_at']) ?></small><br>
+                            <strong><?= htmlspecialchars($item['name']) ?></strong>
+                            <span><?= htmlspecialchars($item['ethnic_group']) ?></span>
+                            <small>Type: <?= htmlspecialchars($item['suggestion_type']) ?></small>
+                            <small>By: <?= htmlspecialchars($item['suggested_by_name'] ?? 'Unknown contributor') ?></small>
+                            <small><?= htmlspecialchars($item['created_at']) ?></small>
                             <span class="badge badge-pending">Pending</span>
                         </a>
                     <?php endforeach; ?>
@@ -504,10 +510,16 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endif; ?>
         </aside>
 
-        <section class="review-main">
+        <section class="review-main review-main-enhanced">
             <?php if ($selectedSuggestion): ?>
                 <div class="detail-card">
-                    <h2><?= htmlspecialchars($selectedSuggestion['name']) ?></h2>
+                    <div class="suggestion-summary-top">
+                        <div>
+                            <h2><?= htmlspecialchars($selectedSuggestion['name']) ?></h2>
+                            <p class="detail-meaning">Suggestion submitted for editorial evaluation.</p>
+                        </div>
+                        <span class="badge badge-pending">Pending Review</span>
+                    </div>
 
                     <div class="detail-grid">
                         <div>
@@ -543,7 +555,10 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
 
                 <div class="detail-card">
-                    <h2>Change Review (Diff View)</h2>
+                    <div class="panel-heading">
+                        <h2>Change Review</h2>
+                        <p>Only changed fields appear below.</p>
+                    </div>
 
                     <?php foreach ($mergeableEntryFields as $config): ?>
                         <?php renderDiffBlock(
@@ -562,11 +577,14 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php endforeach; ?>
 
                     <?php if (empty($mergeableEntryFields) && empty($mergeableProfileFields)): ?>
-                        <p><strong>No mergeable field changes detected.</strong></p>
+                        <div class="empty-merge-note">
+                            <p><strong>No mergeable field changes detected.</strong></p>
+                            <p>This suggestion may contain notes only, unchanged values, or no field-level differences.</p>
+                        </div>
                     <?php endif; ?>
 
                     <?php if (hasContent($selectedSuggestion['contributor_notes'] ?? null)): ?>
-                        <div class="review-block">
+                        <div class="review-block contributor-notes-box">
                             <h3>Contributor Notes</h3>
                             <p><?= nl2br(htmlspecialchars($selectedSuggestion['contributor_notes'])) ?></p>
                         </div>
@@ -574,8 +592,12 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
 
                 <div class="detail-card">
-                    <h2>Current Published Content</h2>
-                    <p>
+                    <div class="panel-heading">
+                        <h2>Current Published Content</h2>
+                        <p>Review the current public-facing state before making a merge decision.</p>
+                    </div>
+
+                    <p class="review-links">
                         <a href="name.php?id=<?= (int)$selectedSuggestion['entry_id'] ?>">View Public Page</a>
                         |
                         <a href="edit-profile.php?entry_id=<?= (int)$selectedSuggestion['entry_id'] ?>">Open Profile Editor</a>
@@ -603,27 +625,29 @@ require_once __DIR__ . '/../includes/header.php';
                 </div>
 
                 <div class="detail-card">
-                    <h2>Editorial Decision</h2>
+                    <div class="panel-heading">
+                        <h2>Editorial Decision</h2>
+                        <p>Approve, reject, or merge selected fields into the live authority record.</p>
+                    </div>
 
                     <form method="post" action="review-suggestions.php?id=<?= (int)$selectedSuggestion['id'] ?>">
                         <input type="hidden" name="suggestion_id" value="<?= (int)$selectedSuggestion['id'] ?>">
 
                         <div class="form-group">
                             <label>Merge Selected Fields</label>
-                            <div class="merge-options">
-
+                            <div class="merge-options merge-options-enhanced">
                                 <?php foreach ($mergeableEntryFields as $fieldName => $config): ?>
-                                    <label>
+                                    <label class="merge-option-item">
                                         <input type="checkbox" name="merge_fields[]" value="<?= htmlspecialchars($fieldName) ?>">
-                                        <?= htmlspecialchars($config['label']) ?>
-                                    </label><br>
+                                        <span><?= htmlspecialchars($config['label']) ?></span>
+                                    </label>
                                 <?php endforeach; ?>
 
                                 <?php foreach ($mergeableProfileFields as $fieldName => $config): ?>
-                                    <label>
+                                    <label class="merge-option-item">
                                         <input type="checkbox" name="merge_fields[]" value="<?= htmlspecialchars($fieldName) ?>">
-                                        <?= htmlspecialchars($config['label']) ?>
-                                    </label><br>
+                                        <span><?= htmlspecialchars($config['label']) ?></span>
+                                    </label>
                                 <?php endforeach; ?>
 
                                 <?php if (empty($mergeableEntryFields) && empty($mergeableProfileFields)): ?>
@@ -638,11 +662,11 @@ require_once __DIR__ . '/../includes/header.php';
                                 id="review_notes"
                                 name="review_notes"
                                 rows="5"
-                                placeholder="Add editorial notes, acceptance rationale, or rejection reason..."
+                                placeholder="Add editorial notes, rationale, or a rejection reason..."
                             ></textarea>
                         </div>
 
-                        <div class="review-actions">
+                        <div class="review-actions review-actions-enhanced">
                             <button type="submit" name="action" value="approve" class="btn-approve">Approve Only</button>
                             <button
                                 type="submit"

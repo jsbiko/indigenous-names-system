@@ -144,3 +144,13 @@ CREATE TABLE IF NOT EXISTS suggestion_merge_logs (
 
 ALTER TABLE suggestion_merge_logs
 ADD COLUMN action_type ENUM('merge', 'rollback') NOT NULL DEFAULT 'merge' AFTER merge_status;
+
+ALTER TABLE name_entries ADD UNIQUE (name, ethnic_group);
+
+CREATE TABLE password_resets (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(150) NOT NULL,
+    token VARCHAR(255) NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

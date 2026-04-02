@@ -6,275 +6,140 @@ require_once __DIR__ . '/../includes/auth.php';
 
 requireRole(['editor', 'admin']);
 
-$pageTitle = 'Editorial Review Dashboard';
+$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
-$successMessage = '';
-$errorMessage = '';
+/* Fetch current entry */
+$stmt = $pdo->prepare("
+    SELECT *
+    FROM name_entries
+    WHERE id = :id AND status = 'pending'
+    LIMIT 1
+");
+$stmt->execute([':id' => $id]);
+$entry = $stmt->fetch();
 
-/* Handle review action */
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $entryId = (int)($_POST['entry_id'] ?? 0);
-    $action = trim($_POST['action'] ?? '');
-    $notes = trim($_POST['notes'] ?? '');
-
-    $validActions = [
-        'approve' => 'approved',
-        'reject' => 'rejected',
-        'request_revision' => 'revision_requested',
-    ];
-
-    if ($entryId <= 0 || !isset($validActions[$action])) {
-        $errorMessage = 'Invalid review request.';
-    } else {
-        $newStatus = match ($action) {
-            'approve' => 'approved',
-            'reject' => 'rejected',
-            'request_revision' => 'pending',
-        };
-
-        try {
-            $pdo->beginTransaction();
-
-            $updateStmt = $pdo->prepare("
-                UPDATE name_entries
-                SET status = :status
-                WHERE id = :id
-            ");
-            $updateStmt->execute([
-                ':status' => $newStatus,
-                ':id' => $entryId,
-            ]);
-
-            $reviewStmt = $pdo->prepare("
-                INSERT INTO reviews (entry_id, reviewer_id, action, notes)
-                VALUES (:entry_id, :reviewer_id, :action, :notes)
-            ");
-            $reviewStmt->execute([
-                ':entry_id' => $entryId,
-                ':reviewer_id' => currentUser()['id'],
-                ':action' => $validActions[$action],
-                ':notes' => $notes !== '' ? $notes : null,
-            ]);
-
-            $pdo->commit();
-            $successMessage = 'Review action completed successfully.';
-        } catch (Throwable $e) {
-            $pdo->rollBack();
-            $errorMessage = 'Failed to process review action.';
-        }
-    }
-}
-
-/* Fetch pending submissions */
-$pendingStmt = $pdo->query("
-    SELECT id, name, ethnic_group, created_at
+/* Sidebar: pending list */
+$listStmt = $pdo->query("
+    SELECT id, name, ethnic_group
     FROM name_entries
     WHERE status = 'pending'
     ORDER BY created_at ASC
 ");
-$pendingEntries = $pendingStmt->fetchAll();
+$pendingList = $listStmt->fetchAll();
 
-/* Determine selected entry */
-$selectedId = isset($_GET['id']) ? (int)($_GET['id'] ?? 0) : 0;
-
-if ($selectedId <= 0 && !empty($pendingEntries)) {
-    $selectedId = (int)$pendingEntries[0]['id'];
-}
-
-$selectedEntry = null;
-$reviewHistory = [];
-
-if ($selectedId > 0) {
-    $detailStmt = $pdo->prepare("
-        SELECT id, name, meaning, ethnic_group, region, gender, naming_context,
-               cultural_explanation, sources, created_at, status
-        FROM name_entries
-        WHERE id = :id
-        LIMIT 1
-    ");
-    $detailStmt->execute([':id' => $selectedId]);
-    $selectedEntry = $detailStmt->fetch();
-
-    if ($selectedEntry) {
-        $historyStmt = $pdo->prepare("
-            SELECT r.action, r.notes, r.created_at, u.full_name
-            FROM reviews r
-            LEFT JOIN users u ON r.reviewer_id = u.id
-            WHERE r.entry_id = :entry_id
-            ORDER BY r.created_at DESC
-        ");
-        $historyStmt->execute([':entry_id' => $selectedEntry['id']]);
-        $reviewHistory = $historyStmt->fetchAll();
-    }
-}
+$pageTitle = 'Review Submissions | Indigenous African Names System';
 
 require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <main class="container page-section">
     <section class="detail-hero">
-        <h1>Editorial Review Dashboard</h1>
-        <p class="detail-meaning">Review pending submissions before publication.</p>
+        <span class="eyebrow">Editorial Review</span>
+        <h1>Review Name Submissions</h1>
+        <p class="detail-meaning">
+            Evaluate submitted names, verify cultural accuracy, and approve or reject entries.
+        </p>
     </section>
-
-    <?php if ($successMessage !== ''): ?>
-        <div class="alert alert-success"><?= htmlspecialchars($successMessage) ?></div>
-    <?php endif; ?>
-
-    <?php if ($errorMessage !== ''): ?>
-        <div class="alert alert-error"><?= htmlspecialchars($errorMessage) ?></div>
-    <?php endif; ?>
 
     <div class="review-layout">
 
+        <!-- LEFT: Pending List -->
         <aside class="review-sidebar detail-card">
-            <h2>Pending</h2>
+            <h2>Pending Entries</h2>
 
-            <?php if (!empty($pendingEntries)): ?>
+            <?php if (!empty($pendingList)): ?>
                 <div class="pending-list">
-                    <?php foreach ($pendingEntries as $entry): ?>
+                    <?php foreach ($pendingList as $item): ?>
                         <a
-                            class="pending-item <?= ((int)$entry['id'] === $selectedId) ? 'pending-item-active' : '' ?>"
-                            href="admin-review.php?id=<?= (int)$entry['id'] ?>"
+                            href="admin-review.php?id=<?= (int)$item['id'] ?>"
+                            class="pending-item <?= $id === (int)$item['id'] ? 'pending-item-active' : '' ?>"
                         >
-                            <strong><?= htmlspecialchars($entry['name']) ?></strong><br>
-                            <span><?= htmlspecialchars($entry['ethnic_group']) ?></span><br>
-                            <small><?= htmlspecialchars($entry['created_at']) ?></small><br>
-                            <span class="badge badge-pending">Pending</span>
+                            <strong><?= htmlspecialchars($item['name']) ?></strong>
+                            <small><?= htmlspecialchars($item['ethnic_group']) ?></small>
                         </a>
                     <?php endforeach; ?>
                 </div>
             <?php else: ?>
                 <p>No pending submissions.</p>
             <?php endif; ?>
-
-
-        
-            <div class="detail-card" style="margin-top: 20px;">
-                <h2>Suggestion Queue</h2>
-                <p>Review contributor improvements for existing name records.</p>
-                <p><a class="btn-revision" href="review-suggestions.php">Open Suggestion Review</a></p>
-            </div>
-        
         </aside>
 
+        <!-- RIGHT: Review Content -->
         <section class="review-main">
-            <?php if ($selectedEntry): ?>
 
+            <?php if (!$entry): ?>
                 <div class="detail-card">
-                    <h2><?= htmlspecialchars($selectedEntry['name']) ?></h2>
+                    <h2>Select an entry</h2>
+                    <p>Choose a pending submission from the left to begin reviewing.</p>
+                </div>
+            <?php else: ?>
+
+                <!-- ENTRY DETAILS -->
+                <div class="detail-card">
+                    <h2><?= htmlspecialchars($entry['name']) ?></h2>
+                    <p class="detail-meaning"><?= htmlspecialchars($entry['meaning']) ?></p>
 
                     <div class="detail-grid">
                         <div>
-                            <h3>Meaning</h3>
-                            <p><?= htmlspecialchars($selectedEntry['meaning']) ?></p>
+                            <strong>Ethnic Group</strong>
+                            <p><?= htmlspecialchars($entry['ethnic_group']) ?></p>
                         </div>
 
                         <div>
-                            <h3>Ethnic Group</h3>
-                            <p><?= htmlspecialchars($selectedEntry['ethnic_group']) ?></p>
+                            <strong>Region</strong>
+                            <p><?= htmlspecialchars($entry['region'] ?: 'Not specified') ?></p>
                         </div>
 
                         <div>
-                            <h3>Region</h3>
-                            <p><?= htmlspecialchars($selectedEntry['region'] ?: 'Not specified') ?></p>
+                            <strong>Gender</strong>
+                            <p><?= htmlspecialchars($entry['gender']) ?></p>
                         </div>
 
                         <div>
-                            <h3>Gender</h3>
-                            <p><?= htmlspecialchars(ucfirst($selectedEntry['gender'])) ?></p>
-                        </div>
-
-                        <div>
-                            <h3>Naming Context</h3>
-                            <p><?= htmlspecialchars($selectedEntry['naming_context'] ?: 'Not specified') ?></p>
-                        </div>
-
-                        <div>
-                            <h3>Status</h3>
-                            <p><span class="badge badge-pending">Pending</span></p>
+                            <strong>Naming Context</strong>
+                            <p><?= htmlspecialchars($entry['naming_context'] ?: 'Not specified') ?></p>
                         </div>
                     </div>
 
                     <div class="review-block">
                         <h3>Cultural Explanation</h3>
-                        <p>
-                            <?= $selectedEntry['cultural_explanation']
-                                ? nl2br(htmlspecialchars($selectedEntry['cultural_explanation']))
-                                : 'No cultural explanation provided.' ?>
-                        </p>
+                        <p><?= nl2br(htmlspecialchars($entry['cultural_explanation'] ?? '')) ?></p>
                     </div>
 
                     <div class="review-block">
-                        <h3>Sources / References</h3>
-                        <p>
-                            <?= $selectedEntry['sources']
-                                ? nl2br(htmlspecialchars($selectedEntry['sources']))
-                                : 'No sources provided.' ?>
-                        </p>
+                        <h3>Sources</h3>
+                        <p><?= nl2br(htmlspecialchars($entry['sources'] ?? '')) ?></p>
                     </div>
                 </div>
-                
+
+                <!-- ACTIONS -->
                 <div class="detail-card">
-                    <h2>Authority Page Tools</h2>
-                    <p>Build or update the extended authority profile for this name.</p>
-                    <p><a class="btn-approve" href="edit-profile.php?entry_id=<?= (int)$selectedEntry['id'] ?>">Open Profile Editor</a></p>
-                </div>
+                    <h2>Editorial Decision</h2>
 
-
-                <div class="detail-card">
-                    <h2>Review</h2>
-
-                    <form method="post" action="admin-review.php?id=<?= (int)$selectedEntry['id'] ?>">
-                        <input type="hidden" name="entry_id" value="<?= (int)$selectedEntry['id'] ?>">
+                    <form method="post" action="process-review.php">
+                        <input type="hidden" name="entry_id" value="<?= (int)$entry['id'] ?>">
 
                         <div class="form-group">
-                            <label for="notes">Reviewer Notes / Revision Message</label>
-                            <textarea
-                                id="notes"
-                                name="notes"
-                                rows="5"
-                                placeholder="Add review comments, rejection reasons, or revision guidance..."
-                            ></textarea>
+                            <label for="notes">Review Notes (optional)</label>
+                            <textarea name="notes" id="notes" rows="4"></textarea>
                         </div>
 
                         <div class="review-actions">
-                            <button type="submit" name="action" value="approve" class="btn-approve">Approve Entry</button>
-                            <button type="submit" name="action" value="reject" class="btn-reject">Reject Entry</button>
-                            <button type="submit" name="action" value="request_revision" class="btn-revision">Request Revision</button>
+                            <button class="btn-approve" name="action" value="approved">
+                                Approve
+                            </button>
+
+                            <button class="btn-reject" name="action" value="rejected">
+                                Reject
+                            </button>
+
+                            <button class="btn-revision" name="action" value="revision_requested">
+                                Request Revision
+                            </button>
                         </div>
                     </form>
                 </div>
 
-                <div class="detail-card">
-                    <h2>Review History</h2>
-
-                    <?php if (!empty($reviewHistory)): ?>
-                        <div class="history-list">
-                            <?php foreach ($reviewHistory as $item): ?>
-                                <div class="history-item">
-                                    <p><strong>Action:</strong> <?= htmlspecialchars($item['action']) ?></p>
-                                    <p><strong>Reviewer:</strong> <?= htmlspecialchars($item['full_name'] ?? 'Unknown') ?></p>
-                                    <p><strong>Date:</strong> <?= htmlspecialchars($item['created_at']) ?></p>
-                                    <p>
-                                        <strong>Notes:</strong>
-                                        <?= $item['notes']
-                                            ? nl2br(htmlspecialchars($item['notes']))
-                                            : 'No notes provided.' ?>
-                                    </p>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php else: ?>
-                        <p>No review history available yet.</p>
-                    <?php endif; ?>
-                </div>
-
-            <?php else: ?>
-                <div class="detail-card">
-                    <h2>No Submission Selected</h2>
-                    <p>There are currently no pending submissions to review.</p>
-                </div>
             <?php endif; ?>
         </section>
 

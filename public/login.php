@@ -5,11 +5,10 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 
 if (isLoggedIn()) {
-    header('Location: index.php');
-    exit;
+    redirectAfterLogin();
 }
 
-$pageTitle = 'Login | Indigenous Names System';
+$pageTitle = 'Login | Indigenous African Names System';
 
 $error = '';
 $email = '';
@@ -38,12 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'role' => $user['role'],
             ];
 
-            if (in_array($user['role'], ['editor', 'admin'], true)) {
-                header('Location: admin-review.php');
-            } else {
-                header('Location: index.php');
-            }
-            exit;
+            redirectAfterLogin();
         } else {
             $error = 'Invalid login credentials.';
         }
@@ -56,7 +50,9 @@ require_once __DIR__ . '/../includes/header.php';
 <main class="container page-section">
     <section class="detail-hero">
         <h1>Login</h1>
-        <p class="detail-meaning">Access contributor, editor, or admin functions.</p>
+        <p class="detail-meaning">
+            Access your contributor, editor, or admin workspace.
+        </p>
     </section>
 
     <?php if ($error !== ''): ?>
@@ -73,24 +69,49 @@ require_once __DIR__ . '/../includes/header.php';
                     name="email"
                     value="<?= htmlspecialchars($email) ?>"
                     required
+                    autocomplete="email"
                 >
             </div>
 
             <div class="form-group">
-                <label for="password">Password</label>
-                <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    required
-                >
+                <div class="auth-label-row">
+                    <label for="password">Password</label>
+                    <a class="auth-inline-link" href="forgot-password.php">Forgot password?</a>
+                </div>
+
+                <div class="password-wrapper">
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        required
+                        autocomplete="current-password"
+                    >
+                    <span class="toggle-password" onclick="togglePassword('password')">👁</span>
+                </div>
+
+                <small class="password-hint">
+                    Enter the password for your account.
+                </small>
             </div>
 
             <div class="form-actions">
-                <button type="submit">Login</button>
+                <button type="submit" class="btn-primary full-width">Login</button>
+            </div>
+
+            <div class="auth-footer">
+                <p>Don’t have an account? <a href="register.php">Register</a></p>
             </div>
         </form>
     </section>
 </main>
+
+<script>
+function togglePassword(id) {
+    const input = document.getElementById(id);
+    if (!input) return;
+    input.type = input.type === 'password' ? 'text' : 'password';
+}
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

@@ -9,7 +9,7 @@ if (!isLoggedIn()) {
     exit;
 }
 
-$pageTitle = 'Submit Name | Indigenous Names System';
+$pageTitle = 'Submit Name | Indigenous African Names System';
 
 $errors = [];
 $successMessage = '';
@@ -108,6 +108,11 @@ require_once __DIR__ . '/../includes/header.php';
     <section class="detail-hero">
         <h1>Submit a New Name</h1>
         <p class="detail-meaning">Contribute culturally grounded name information for editorial review.</p>
+        <div class="alert alert-info">
+    <strong>Getting Started:</strong><br>
+    You can submit names from your community or cultural background.
+    The platform is currently growing its Kenyan dataset and expanding across Africa.
+</div>
     </section>
 
     <?php if (!empty($errors)): ?>

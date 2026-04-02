@@ -43,12 +43,12 @@ if (!$entry) {
 }
 
 $pageTitle = $entry
-    ? $entry['name'] . ' | Indigenous Names System'
-    : 'Name Not Found | Indigenous Names System';
+    ? $entry['name'] . ' | Indigenous African Names System'
+    : 'Name Not Found | Indigenous African Names System';
 
 $isEditorialUser = false;
 
-if (function_exists('isLoggedIn') && function_exists('currentUser') && isLoggedIn()) {
+if (isLoggedIn()) {
     $currentUser = currentUser();
     $isEditorialUser = isset($currentUser['role']) && in_array($currentUser['role'], ['editor', 'admin'], true);
 }
@@ -58,9 +58,11 @@ require_once __DIR__ . '/../includes/header.php';
 
 <main class="container page-section">
     <?php if (!$entry): ?>
-        <h1>Name Not Found</h1>
-        <p>The requested name record does not exist or is not publicly available.</p>
-        <p><a href="browse.php">Back to Browse</a></p>
+        <div class="detail-card">
+            <h1>Name Not Found</h1>
+            <p>The requested name record does not exist or is not publicly available.</p>
+            <p><a href="browse.php">Back to Browse</a></p>
+        </div>
     <?php else: ?>
         <div class="breadcrumb">
             <a href="index.php">Home</a> /
@@ -69,30 +71,43 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <section class="detail-hero">
+            <span class="eyebrow">Authority Profile</span>
             <h1><?= htmlspecialchars($entry['name']) ?></h1>
             <p class="detail-meaning"><?= htmlspecialchars($entry['meaning']) ?></p>
         </section>
 
         <?php if (isLoggedIn()): ?>
-    <div class="detail-card">
-        <a class="btn-revision" href="suggest-improvement.php?entry_id=<?= (int)$entry['id'] ?>">
-            Suggest Improvement
-        </a>
-    </div><?php endif; ?>
+            <div class="detail-card action-bar">
+                <a class="btn-primary" href="suggest-improvement.php?entry_id=<?= (int)$entry['id'] ?>">
+                    Suggest Improvement
+                </a>
+
+                <a class="btn-secondary" href="browse.php">
+                    Browse More Names
+                </a>
+            </div>
+        <?php endif; ?>
 
         <?php if ($isEditorialUser): ?>
-            <div class="detail-card">
-                <h2>Editorial Tools</h2>
-                <p>Manage the authority profile and editorial content for this name entry.</p>
-                <p>
-                    <a class="btn-approve" href="edit-profile.php?entry_id=<?= (int)$entry['id'] ?>">
+            <div class="detail-card editorial-tools">
+                <div class="editorial-header">
+                    <h2>Editorial Tools</h2>
+                    <span class="badge badge-editor">Editor Access</span>
+                </div>
+
+                <p class="editorial-desc">
+                    Manage authority content, review merge history, and maintain data integrity for this entry.
+                </p>
+
+                <div class="editorial-actions">
+                    <a class="btn-primary" href="edit-profile.php?entry_id=<?= (int)$entry['id'] ?>">
                         Edit Authority Profile
                     </a>
-                </p>
-                <p><a class="btn-revision" href="merge-history.php?entry_id=<?= (int)$entry['id'] ?>">
-                    View Merge History
-                </a>
-                </p>
+
+                    <a class="btn-secondary" href="merge-history.php?entry_id=<?= (int)$entry['id'] ?>">
+                        View Merge History
+                    </a>
+                </div>
             </div>
         <?php endif; ?>
 
