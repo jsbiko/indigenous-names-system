@@ -175,3 +175,59 @@ CREATE TABLE user_role_audit (
     INDEX idx_changed_by (changed_by),
     INDEX idx_created_at (created_at)
 );
+
+SELECT
+    id,
+    name,
+    created_at,
+    TIMESTAMPDIFF(HOUR, created_at, NOW()) AS hours_waiting
+FROM name_entries
+ORDER BY created_at ASC;
+
+SELECT
+    ne.id,
+    ne.name,
+    ne.created_at,
+    TIMESTAMPDIFF(HOUR, ne.created_at, NOW()) AS hours_waiting
+FROM name_entries ne
+ORDER BY ne.created_at ASC;
+
+ALTER TABLE suggestions 
+ADD COLUMN suggestion_type VARCHAR(50) DEFAULT 'general';
+
+CREATE TABLE IF NOT EXISTS name_profiles (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    name_entry_id INT UNSIGNED NOT NULL,
+    profile_status ENUM('draft', 'published', 'archived') NOT NULL DEFAULT 'draft',
+
+    origin_overview TEXT NULL,
+    meaning_extended TEXT NULL,
+    historical_context TEXT NULL,
+    cultural_significance TEXT NULL,
+    naming_traditions TEXT NULL,
+    variants TEXT NULL,
+    pronunciation_notes TEXT NULL,
+    editorial_notes TEXT NULL,
+    sources_extended TEXT NULL,
+
+    created_by INT UNSIGNED NULL,
+    updated_by INT UNSIGNED NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_name_profiles_entry
+        FOREIGN KEY (name_entry_id) REFERENCES name_entries(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_name_profiles_created_by
+        FOREIGN KEY (created_by) REFERENCES users(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_name_profiles_updated_by
+        FOREIGN KEY (updated_by) REFERENCES users(id)
+        ON DELETE SET NULL,
+
+    UNIQUE KEY uniq_name_profiles_entry (name_entry_id),
+    INDEX idx_name_profiles_status (profile_status),
+    INDEX idx_name_profiles_updated_at (updated_at)
+);
